@@ -925,3 +925,7 @@ body {
 
     html { scroll-behavior: auto; }
 }
+
+.merek-teks {
+    display: flex;
+}
