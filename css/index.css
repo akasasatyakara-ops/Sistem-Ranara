@@ -80,14 +80,15 @@ a:hover {
 }
 
 .logo {
-    width: 100px;
-    height: 100px;
+    width: 200px;
+    height: 200px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 27px;
     font-weight: 800;
     color: #fff;
+    margin-left: 50px;
 }
 
 .panel-brand h1 {
