@@ -910,6 +910,173 @@ body {
     #form-laporan > label:nth-child(2) { grid-column: auto; }
 }
 
+/* ============================================================
+   Responsif lanjutan — HP kecil, HP, tablet, laptop, layar lebar
+   ============================================================ */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+img { max-width: 100%; }
+
+.merek,
+.merek-teks,
+.pengguna-teks { min-width: 0; }
+
+.pengguna-teks strong,
+.pengguna-teks span {
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Tabel selalu bisa digeser sentuh, tidak pernah membuat halaman melebar */
+.tabel-gulir {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    max-width: 100%;
+}
+
+.modal { overflow-y: auto; }
+
+.modal-kartu {
+    max-height: calc(100vh - 32px);
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
+}
+
+/* ---------- Laptop kecil & tablet landscape (≤ 1280px) ---------- */
+@media (max-width: 1280px) {
+    .tabel { min-width: 1180px; }
+}
+
+/* ---------- Tablet (≤ 1024px) ---------- */
+@media (max-width: 1024px) {
+    .dasbor { padding: 24px 18px 24px; }
+
+    .alat-laporan {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .input-cari {
+        flex: 1 1 220px;
+        width: auto;
+    }
+}
+
+/* ---------- HP & tablet kecil (≤ 720px) ---------- */
+@media (max-width: 720px) {
+    .dasbor-kepala { gap: 12px; }
+
+    .merek { width: 100%; gap: 12px; }
+
+    .logo { height: 48px; }
+
+    .merek-teks h1 { font-size: 20px; }
+
+    /* Baris pengguna: nama di kiri, avatar & tombol keluar di kanan */
+    .pengguna {
+        justify-content: space-between;
+        padding-top: 12px;
+        border-top: 1px solid var(--border);
+    }
+
+    .pengguna-teks {
+        flex: 1;
+        align-items: flex-start;
+        text-align: left;
+    }
+
+    .pengguna-teks strong { max-width: 100%; }
+
+    /* Alat laporan: cari penuh, filter & tombol ekspor dua kolom */
+    .tabel-kepala { align-items: flex-start; }
+
+    .input-cari { flex: 1 1 100%; }
+
+    .filter-pilih,
+    .tombol-ekspor {
+        flex: 1 1 calc(50% - 4px);
+        min-width: 0;
+        justify-content: center;
+    }
+
+    /* 16px mencegah iOS memperbesar layar otomatis saat mengetik */
+    #form-laporan input,
+    #form-laporan select,
+    #form-laporan textarea,
+    .input-cari,
+    .filter-pilih { font-size: 16px; }
+
+    /* Tombol formulir selebar layar, mudah ditekan */
+    #form-laporan .aksi-form { flex-direction: column-reverse; }
+    #form-laporan .aksi-form button { width: 100%; }
+
+    .aksi-form.tengah button { flex: 1; }
+
+    .tabel { min-width: 1100px; }
+
+    .toast { bottom: 16px; font-size: 13px; }
+}
+
+/* ---------- HP (≤ 480px) ---------- */
+@media (max-width: 480px) {
+    .dasbor { padding: 16px 12px 16px; }
+
+    .ringkasan { grid-template-columns: 1fr; }
+    .kartu-total { grid-column: auto; }
+
+    .kartu-ringkasan .nilai {
+        font-size: 22px;
+        overflow-wrap: anywhere;
+    }
+
+    .pratinjau { padding: 12px; }
+
+    .pratinjau-nilai,
+    .pratinjau-baris.utama .pratinjau-nilai { font-size: 16px; }
+
+    .panel-form h2,
+    .tabel-kepala h2 { font-size: 17px; }
+
+    .tombol-keluar { padding: 9px 14px; }
+
+    .modal { padding: 12px; }
+    .modal-kartu { padding: 22px 18px 18px; }
+}
+
+/* ---------- HP sangat kecil (≤ 360px) ---------- */
+@media (max-width: 360px) {
+    .dasbor { padding: 14px 10px 14px; }
+
+    .kartu { padding: 14px; }
+
+    .filter-pilih,
+    .tombol-ekspor { flex: 1 1 100%; }
+
+    .merek-teks h1 { font-size: 18px; }
+}
+
+/* ---------- Layar sentuh: target tekan lebih besar ---------- */
+@media (pointer: coarse) {
+    .tombol-aksi { padding: 9px 14px; }
+
+    .tombol-ekspor,
+    .tombol-keluar,
+    .filter-pilih,
+    .input-cari { min-height: 42px; }
+
+    .tombol-primer,
+    .tombol-sekunder,
+    .tombol-bahaya { min-height: 44px; }
+}
+
+/* ---------- HP landscape (tinggi layar pendek) ---------- */
+@media (max-height: 500px) and (orientation: landscape) {
+    .modal { align-items: flex-start; }
+    .modal-kartu { margin: auto; }
+}
+
 /* ---------- Kurangi gerakan ---------- */
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
