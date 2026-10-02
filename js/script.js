@@ -16,7 +16,7 @@
    kirim token tersebut ke backend agar terverifikasi.
    ============================================================= */
 
-const GOOGLE_CLIENT_ID = ""; // ← tempel Client ID di sini, cth: "1234-abc.apps.googleusercontent.com"
+const GOOGLE_CLIENT_ID = "943632544130-80j0fqheiv2ok61tqb09fe9frp9dg7qt.apps.googleusercontent.com"; // ← tempel Client ID di sini, cth: "1234-abc.apps.googleusercontent.com"
 
 const KUNCI_SESI = "ranara_sesi";
 

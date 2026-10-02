@@ -7,6 +7,6 @@
    Biarkan kosong untuk memakai penyimpanan localStorage (tanpa database).
    ============================================================= */
 window.RANARA_CONFIG = {
-    SUPABASE_URL: "",       // cth. "https://abcdxyz.supabase.co"
-    SUPABASE_ANON_KEY: "",  // cth. "eyJhbGciOi..."
+    SUPABASE_URL: "",       // cth. "https://zrlcvftrgakhgczyruxb.supabase.co"
+    SUPABASE_ANON_KEY: "",  // cth. "sb_publishable_DzCbc38s4WyX8lG2Ogp4UA_JW66WtiW"
 };
