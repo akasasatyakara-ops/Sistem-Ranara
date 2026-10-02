@@ -68,7 +68,7 @@ body {
     justify-content: space-between;
     gap: 18px;
     flex-wrap: wrap;
-}p
+}
 
 .merek {
     display: flex;
@@ -77,14 +77,9 @@ body {
 }
 
 .logo {
-    width: 52x;
-    height: 52px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 25px;
-    font-weight: 800;
-    color: #fff;
+    height: 64px;
+    width: auto;
+    object-fit: contain;
     flex-shrink: 0;
 }
 
