@@ -35,11 +35,6 @@ const el = {
     avatarInisial: $("avatar-inisial"),
     keluar: $("tombol-keluar"),
 
-    totalPagu: $("total-pagu"),
-    totalPajak: $("total-pajak"),
-    totalPersen: $("total-persen"),
-    totalDiterima: $("total-diterima"),
-
     judulForm: $("judul-form"),
     subForm: $("sub-form"),
     form: $("form-laporan"),
@@ -86,6 +81,8 @@ let nilaiFilterTahun = "semua"; // filter tahun ("semua" = tanpa filter)
    Inisialisasi
    ============================================================= */
 async function init() {
+    siapkanRingkasan();
+
     const sesi = muatSesi();
     if (!sesi) {
         // Belum masuk — kembalikan ke halaman login
@@ -407,14 +404,53 @@ function render() {
             : "Belum ada laporan.\nGunakan formulir untuk mencatat laporan pertama Anda.";
     }
 
-    // Ringkasan dihitung dari seluruh data (bukan hasil filter/pencarian)
-    const t = ringkas(daftarLaporan);
-    el.totalPagu.textContent = formatRupiah(t.pagu);
-    el.totalPajak.textContent = formatRupiah(t.pajak);
-    el.totalPersen.textContent = formatRupiah(t.persen);
-    el.totalDiterima.textContent = formatRupiah(t.diterima);
+    // Ringkasan mengikuti laporan yang sedang tampil (pencarian + filter CV/PT + tahun)
+    perbaruiRingkasan(terlihat);
 
     isiPilihanFilter();
+}
+
+/* Bangun tiga kartu ringkasan: Total 5%, Jumlah Laporan, Laporan Terakhir */
+function siapkanRingkasan() {
+    const wadah = document.querySelector(".ringkasan");
+    if (!wadah) return;
+
+    wadah.innerHTML =
+        '<div class="kartu-ringkasan kartu-total">' +
+            '<p class="label">Total 5%</p>' +
+            '<p class="nilai" id="total-persen">Rp 0</p>' +
+            '<p class="sub">PAGU × 5%</p>' +
+        '</div>' +
+        '<div class="kartu-ringkasan">' +
+            '<p class="label">Jumlah Laporan</p>' +
+            '<p class="nilai" id="jumlah-laporan">0</p>' +
+            '<p class="sub" id="sub-jumlah-laporan">laporan tercatat</p>' +
+        '</div>' +
+        '<div class="kartu-ringkasan">' +
+            '<p class="label">Laporan Terakhir</p>' +
+            '<p class="nilai teks" id="tanggal-terakhir">—</p>' +
+            '<p class="sub" id="uraian-terakhir">Belum ada laporan</p>' +
+        '</div>';
+}
+
+/* Isi kartu ringkasan dari laporan yang sedang tampil (sudah urut tanggal) */
+function perbaruiRingkasan(terlihat) {
+    const t = ringkas(terlihat);
+    const terakhir = terlihat[terlihat.length - 1];
+
+    $("total-persen").textContent = formatRupiah(t.persen);
+    $("jumlah-laporan").textContent = terlihat.length.toLocaleString("id-ID");
+
+    const adaSaringan = kataKunci || nilaiFilterCv !== "semua" || nilaiFilterTahun !== "semua";
+    $("sub-jumlah-laporan").textContent = adaSaringan ? "sesuai pencarian / filter" : "laporan tercatat";
+
+    if (terakhir) {
+        $("tanggal-terakhir").textContent = formatTanggal(terakhir.tanggal);
+        $("uraian-terakhir").textContent = terakhir.uraian || terakhir.cv || "Tanpa uraian";
+    } else {
+        $("tanggal-terakhir").textContent = "—";
+        $("uraian-terakhir").textContent = "Belum ada laporan";
+    }
 }
 
 /* Isi pilihan dropdown filter dari data yang ada */

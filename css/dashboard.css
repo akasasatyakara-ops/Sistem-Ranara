@@ -1135,17 +1135,39 @@ img { max-width: 100%; }
 }
 
 /* ============================================================
-   Ringkasan: hanya kartu "Total 5%" yang ditampilkan
-   (Total PAGU, Jumlah Pajak, dan Jumlah Dikembalikan disembunyikan)
+   Ringkasan: Total 5%, Jumlah Laporan, Laporan Terakhir
    ============================================================ */
-.kartu-ringkasan:has(#total-pagu),
-.kartu-ringkasan:has(#total-pajak),
-.kartu-ringkasan:has(#total-diterima) {
-    display: none;
+.ringkasan {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
 }
 
-.ringkasan {
-    grid-template-columns: minmax(0, 360px);
+.kartu-total { grid-column: auto; }
+
+.kartu-ringkasan { min-width: 0; }
+
+.kartu-ringkasan .sub {
+    margin-top: 6px;
+    font-size: 12.5px;
+    color: var(--teks-redup);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.kartu-total .sub { color: rgba(255, 255, 255, 0.8); }
+
+/* Nilai berupa teks (tanggal): sedikit lebih kecil dari angka */
+.kartu-ringkasan .nilai.teks { font-size: clamp(20px, 2vw, 24px); }
+
+@media (max-width: 900px) {
+    .ringkasan { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .kartu-ringkasan:last-child { grid-column: span 2; }
+}
+
+@media (max-width: 560px) {
+    .ringkasan { grid-template-columns: minmax(0, 1fr); }
+    .kartu-ringkasan:last-child { grid-column: auto; }
 }
 
 /* ---------- Kurangi gerakan ---------- */
