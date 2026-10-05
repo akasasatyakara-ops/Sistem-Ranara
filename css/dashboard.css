@@ -1134,6 +1134,20 @@ img { max-width: 100%; }
     .modal-kartu { margin: auto; }
 }
 
+/* ============================================================
+   Ringkasan: hanya kartu "Total 5%" yang ditampilkan
+   (Total PAGU, Jumlah Pajak, dan Jumlah Dikembalikan disembunyikan)
+   ============================================================ */
+.kartu-ringkasan:has(#total-pagu),
+.kartu-ringkasan:has(#total-pajak),
+.kartu-ringkasan:has(#total-diterima) {
+    display: none;
+}
+
+.ringkasan {
+    grid-template-columns: minmax(0, 360px);
+}
+
 /* ---------- Kurangi gerakan ---------- */
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
