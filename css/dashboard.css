@@ -911,10 +911,65 @@ body {
 }
 
 /* ============================================================
+   Tata letak dua kolom (laptop & desktop ≥ 1025px):
+   formulir input di kiri, daftar laporan di kanan
+   ============================================================ */
+@media (min-width: 1025px) {
+    .konten {
+        grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+        gap: 20px;
+        align-items: start;
+    }
+
+    /* Formulir menempel di kiri saat daftar laporan digulir */
+    .panel-form {
+        position: sticky;
+        top: 16px;
+        max-height: calc(100vh - 32px);
+        overflow-y: auto;
+    }
+
+    .panel-tabel { min-width: 0; }
+
+    /* Kolom formulir sempit: semua isian ditumpuk satu kolom */
+    #form-laporan { grid-template-columns: minmax(0, 1fr); }
+    #form-laporan > label:nth-child(2) { grid-column: auto; }
+
+    /* Perhitungan Otomatis: satu kolom, label di kiri & angka di kanan */
+    .pratinjau {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 8px;
+        padding: 14px;
+    }
+
+    .pratinjau-baris,
+    .pratinjau-baris.utama {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 12px;
+    }
+
+    .pratinjau-nilai,
+    .pratinjau-baris.utama .pratinjau-nilai {
+        font-size: 15px;
+        text-align: right;
+    }
+}
+
+@media (min-width: 1025px) and (max-width: 1280px) {
+    .konten { grid-template-columns: minmax(280px, 320px) minmax(0, 1fr); }
+}
+
+/* ============================================================
    Responsif lanjutan — HP kecil, HP, tablet, laptop, layar lebar
    ============================================================ */
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 img { max-width: 100%; }
+
+/* Kolom grid boleh menyusut; tabel lebar digeser di dalam panelnya, bukan melebarkan halaman */
+.konten > * { min-width: 0; }
 
 .merek,
 .merek-teks,
@@ -951,6 +1006,8 @@ img { max-width: 100%; }
 
 /* ---------- Tablet (≤ 1024px) ---------- */
 @media (max-width: 1024px) {
+    .konten { grid-template-columns: minmax(0, 1fr); }
+
     .dasbor { padding: 24px 18px 24px; }
 
     .alat-laporan {
