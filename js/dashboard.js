@@ -580,49 +580,78 @@ function buatTombolAksi(teks, kelas, aksi) {
    Ekspor — Excel (.xlsx) & PDF bergaya invoice
    Ekspor memuat data yang sedang tampil (pencarian + filter).
    ============================================================= */
-/* Susun workbook Excel dengan format "Laporan Keuangan" (buku besar):
-   TANGGAL | Uraian / Keterangan | CV | 5% | PPN 12% | PPH 22 | Setelah Pajak |
-   Anggaran | Masuk | KELUAR | SALDO
-     - Masuk  = 5% dari PAGU
-     - Anggaran = Jumlah Diterima (Setelah Pajak − 5%)
-     - KELUAR = Anggaran
-     - SALDO  = akumulasi Masuk (5%) berjalan, mulai dari nol tiap tahun */
+/* ---------------------------------------------------------------
+   Susun workbook Excel format BUKU BESAR RANARA
+   Kolom: TANGGAL | KETERANGAN | Qty | MASUK | KELUAR | SALDO
+   Setiap transaksi dipecah menjadi beberapa baris jurnal:
+     1. Pengadaan (nama sekolah/uraian)  → MASUK  = PAGU
+     2. Pajak (PPN)                      → KELUAR = PPN
+     3. Pajak (PPH 22)                   → KELUAR = PPH
+     4. Pembelian Tunai                  → KELUAR = Setelah Pajak − 5%
+     5. Kas                              → MASUK  = 5% × PAGU
+   --------------------------------------------------------------- */
 function bangunWorkbook(ExcelJS, data) {
     const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet("BUKU BESAR", { views: [{ state: "frozen", ySplit: 4 }] });
+    const ws = wb.addWorksheet("BUKU BESAR", { views: [{ state: "frozen", ySplit: 5 }] });
 
     const FORMAT_RP = "[$Rp-421]#,##0";
     const FORMAT_TGL = "[$-421]dd\\ mmmm\\ yyyy;@";
-    const tipis = { style: "thin", color: { argb: "FF000000" } };
-    const garis = { top: tipis, left: tipis, bottom: tipis, right: tipis };
     const NAMA_FONT = "Calibri";
+    const tipis  = { style: "thin",   color: { argb: "FF000000" } };
+    const tebal  = { style: "medium", color: { argb: "FF000000" } };
+    const garis  = { top: tipis, left: tipis, bottom: tipis, right: tipis };
+    const garisTebal = { top: tebal, left: tebal, bottom: tebal, right: tebal };
 
+    // Lebar kolom: TANGGAL | KETERANGAN | Qty | MASUK | KELUAR | SALDO
     ws.columns = [
-        { width: 19 }, { width: 44 }, { width: 24 }, { width: 14 }, { width: 14 },
-        { width: 13 }, { width: 16 }, { width: 16 }, { width: 16 }, { width: 16 }, { width: 16 },
+        { width: 20 }, // A – TANGGAL
+        { width: 46 }, // B – KETERANGAN
+        { width: 8  }, // C – Qty
+        { width: 20 }, // D – MASUK
+        { width: 20 }, // E – KELUAR
+        { width: 20 }, // F – SALDO
     ];
 
-    // Judul (A1:K2)
+    // --- Judul buku besar (baris 1–2) ---
     const tahunData = [...new Set(data.map((l) => (l.tanggal || "").slice(0, 4)).filter(Boolean))].sort();
     const teksTahun = tahunData.length === 0 ? "" :
-        tahunData.length === 1 ? tahunData[0] : tahunData[0] + " - " + tahunData[tahunData.length - 1];
-    ws.mergeCells("A1:K1");
-    ws.mergeCells("A2:K2");
-    ws.getCell("A1").value = "LAPORAN KEUANGAN";
-    ws.getCell("A2").value = "TAHUN " + teksTahun;
-    ["A1", "A2"].forEach((k) => {
-        ws.getCell(k).font = { name: NAMA_FONT, size: 10, bold: true };
-        ws.getCell(k).alignment = { horizontal: "center" };
-    });
+        tahunData.length === 1 ? tahunData[0] : tahunData[0] + " – " + tahunData[tahunData.length - 1];
 
-    // Kepala tabel (baris 4)
-    const kepala = ["TANGGAL", "Uraian / Keterangan", "CV", 0.05, "PPN 12%", "PPH 22",
-        "Setelah Pajak", "Anggaran", "Masuk", "KELUAR", "SALDO"];
-    const barisKepala = ws.getRow(4);
-    kepala.forEach((nilai, i) => {
+    ws.mergeCells("A1:F1");
+    ws.getCell("A1").value = "BUKU BESAR RANARA";
+    ws.getCell("A1").font = { name: NAMA_FONT, size: 14, bold: true };
+    ws.getCell("A1").alignment = { horizontal: "center", vertical: "middle" };
+    ws.getRow(1).height = 22;
+
+    ws.mergeCells("A2:F2");
+    ws.getCell("A2").value = teksTahun;
+    ws.getCell("A2").font = { name: NAMA_FONT, size: 11, bold: true };
+    ws.getCell("A2").alignment = { horizontal: "center", vertical: "middle" };
+    ws.getRow(2).height = 18;
+
+    // Baris 3 kosong
+    ws.getRow(3).height = 6;
+
+    // --- Baris sub-kepala: label grup MASUK / KELUAR ---
+    const barisSubKepala = ws.getRow(4);
+    // Merge A4:C4 label kosong, D4 = MASUK, E4 = KELUAR, F4 = SALDO
+    ws.mergeCells("A4:C4");
+    ["A4", "D4", "E4", "F4"].forEach((ref, idx) => {
+        const teks = ["TANGGAL / KETERANGAN", "MASUK", "KELUAR", "SALDO"][idx];
+        ws.getCell(ref).value = teks;
+        ws.getCell(ref).font = { name: NAMA_FONT, size: 10, bold: true };
+        ws.getCell(ref).alignment = { horizontal: "center", vertical: "middle" };
+        ws.getCell(ref).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDDEBF7" } };
+        ws.getCell(ref).border = garisTebal;
+    });
+    barisSubKepala.height = 16;
+
+    // --- Kepala kolom (baris 5) ---
+    const kepalaKolom = ["TANGGAL", "KETERANGAN", "Qty", "MASUK", "KELUAR", "SALDO"];
+    const barisKepala = ws.getRow(5);
+    kepalaKolom.forEach((teks, i) => {
         const sel = barisKepala.getCell(i + 1);
-        sel.value = nilai;
-        if (i === 3) sel.numFmt = "0%"; // kolom 5%
+        sel.value = teks;
         sel.font = { name: NAMA_FONT, size: 10, bold: true };
         sel.alignment = { horizontal: "center", vertical: "middle" };
         sel.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDDEBF7" } };
@@ -630,46 +659,117 @@ function bangunWorkbook(ExcelJS, data) {
     });
     barisKepala.height = 15;
 
-    // Isi: satu baris per laporan
-    const saldo = hitungSaldo(data);
-    const jumlah = { persen: 0, ppn: 0, pph22: 0, setelah: 0, anggaran: 0 };
-    data.forEach((l, i) => {
+    // --- Isi jurnal: tiap transaksi → beberapa baris ---
+    let saldoBerjalan = 0;
+    let noBarisExcel = 6; // mulai dari baris 6
+    let totalMasuk = 0, totalKeluar = 0;
+
+    // Kelompokkan per tanggal untuk tampilan tanggal pertama saja
+    let tanggalTampil = null;
+
+    const tulisBaris = (tglObj, keterangan, qty, masuk, keluar, isGroupFirst) => {
+        saldoBerjalan += (masuk || 0) - (keluar || 0);
+        const baris = ws.getRow(noBarisExcel);
+
+        // Kolom A – TANGGAL (hanya tampil di baris pertama grup tanggal)
+        const selTgl = baris.getCell(1);
+        if (isGroupFirst && tglObj) {
+            selTgl.value = tglObj;
+            selTgl.numFmt = FORMAT_TGL;
+            selTgl.alignment = { horizontal: "left", vertical: "middle" };
+        } else {
+            selTgl.value = null;
+        }
+        selTgl.font = { name: NAMA_FONT, size: 10 };
+        selTgl.border = garis;
+
+        // Kolom B – KETERANGAN
+        const selKet = baris.getCell(2);
+        selKet.value = keterangan;
+        selKet.font = { name: NAMA_FONT, size: 10 };
+        selKet.alignment = { horizontal: "left", vertical: "middle", wrapText: true };
+        selKet.border = garis;
+
+        // Kolom C – Qty
+        const selQty = baris.getCell(3);
+        selQty.value = qty || null;
+        selQty.font = { name: NAMA_FONT, size: 10 };
+        selQty.alignment = { horizontal: "center", vertical: "middle" };
+        selQty.border = garis;
+
+        // Kolom D – MASUK
+        const selMasuk = baris.getCell(4);
+        selMasuk.value = masuk || null;
+        selMasuk.numFmt = FORMAT_RP;
+        selMasuk.font = { name: NAMA_FONT, size: 10 };
+        selMasuk.alignment = { horizontal: "right", vertical: "middle" };
+        selMasuk.border = garis;
+
+        // Kolom E – KELUAR
+        const selKeluar = baris.getCell(5);
+        selKeluar.value = keluar || null;
+        selKeluar.numFmt = FORMAT_RP;
+        selKeluar.font = { name: NAMA_FONT, size: 10 };
+        selKeluar.alignment = { horizontal: "right", vertical: "middle" };
+        selKeluar.border = garis;
+
+        // Kolom F – SALDO
+        const selSaldo = baris.getCell(6);
+        selSaldo.value = saldoBerjalan;
+        selSaldo.numFmt = FORMAT_RP;
+        selSaldo.font = { name: NAMA_FONT, size: 10, bold: true };
+        selSaldo.alignment = { horizontal: "right", vertical: "middle" };
+        selSaldo.border = garis;
+
+        totalMasuk  += masuk  || 0;
+        totalKeluar += keluar || 0;
+        noBarisExcel++;
+    };
+
+    data.forEach((l) => {
         const r = hitung(l.pagu, l.ppn, l.pph22);
-        const anggaran = r.diterima;
-        const uraian = [l.uraian, l.keterangan].filter(Boolean).join(" — ");
-        let tgl = "";
+        let tglObj = null;
         if (l.tanggal) {
             const [y, m, d] = l.tanggal.split("-").map(Number);
-            tgl = new Date(Date.UTC(y, m - 1, d));
+            tglObj = new Date(Date.UTC(y, m - 1, d));
         }
-        const nilai = [tgl, uraian, l.cv || "", r.persen, l.ppn, l.pph22, r.setelah,
-            anggaran, r.persen, anggaran, saldo[i]];
-        const baris = ws.getRow(5 + i);
-        nilai.forEach((v, k) => {
-            const sel = baris.getCell(k + 1);
-            sel.value = v;
-            sel.font = { name: NAMA_FONT, size: 10 };
-            sel.border = garis;
-            if (k === 0) { sel.numFmt = FORMAT_TGL; sel.alignment = { horizontal: "left" }; }
-            else if (k <= 2) { sel.alignment = { horizontal: "left", vertical: "top", wrapText: true }; }
-            else { sel.numFmt = FORMAT_RP; sel.alignment = { horizontal: "right" }; }
-        });
-        jumlah.persen += r.persen;
-        jumlah.ppn += l.ppn;
-        jumlah.pph22 += l.pph22;
-        jumlah.setelah += r.setelah;
-        jumlah.anggaran += anggaran;
+        const isTglBaru = l.tanggal !== tanggalTampil;
+        tanggalTampil = l.tanggal;
+
+        // Baris 1 — Pengadaan (MASUK = PAGU)
+        const namaUraian = l.uraian || l.cv || "Pengadaan";
+        tulisBaris(tglObj, namaUraian, null, l.pagu, 0, isTglBaru);
+
+        // Baris 2 — Pajak PPN (KELUAR)
+        if (l.ppn > 0) {
+            tulisBaris(null, "Pajak (PPN)", null, 0, l.ppn, false);
+        }
+
+        // Baris 3 — Pajak PPH 22 (KELUAR)
+        if (l.pph22 > 0) {
+            tulisBaris(null, "Pajak (PPH 22)", null, 0, l.pph22, false);
+        }
+
+        // Baris 4 — Pembelian Tunai / Pengembalian Modal (KELUAR = Setelah Pajak − 5%)
+        const pembelianTunai = r.diterima; // = setelah_pajak - 5%
+        if (pembelianTunai > 0) {
+            tulisBaris(null, "Pengembalian Modal Perorangan", null, 0, pembelianTunai, false);
+        }
+
+        // Baris 5 — Kas (MASUK = 5%)
+        if (r.persen > 0) {
+            tulisBaris(null, "Kas", null, r.persen, 0, false);
+        }
     });
 
-    // Baris JUMLAH
-    const barisJumlah = ws.getRow(5 + data.length);
-    const nilaiJumlah = ["", "JUMLAH", "", jumlah.persen, jumlah.ppn, jumlah.pph22, jumlah.setelah,
-        jumlah.anggaran, jumlah.persen, jumlah.anggaran, ""];
+    // --- Baris JUMLAH ---
+    const barisJumlah = ws.getRow(noBarisExcel);
+    const nilaiJumlah = ["", "JUMLAH", "", totalMasuk, totalKeluar, saldoBerjalan];
     nilaiJumlah.forEach((v, k) => {
         const sel = barisJumlah.getCell(k + 1);
         sel.value = v;
         sel.font = { name: NAMA_FONT, size: 10, bold: true };
-        sel.border = garis;
+        sel.border = garisTebal;
         sel.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDDEBF7" } };
         if (k === 1) sel.alignment = { horizontal: "center" };
         else if (k >= 3) { sel.numFmt = FORMAT_RP; sel.alignment = { horizontal: "right" }; }
@@ -726,149 +826,157 @@ function eksporPdf() {
     toast("Laporan diekspor ke PDF.");
 }
 
-/* Susun dokumen PDF "Laporan Keuangan" — kolom sama dengan ekspor Excel:
-   TANGGAL | Uraian / Keterangan | CV | 5% | PPN 12% | PPH 22 | Setelah Pajak |
-   Anggaran | Masuk | KELUAR | SALDO */
+/* ---------------------------------------------------------------
+   Susun dokumen PDF format BUKU BESAR RANARA
+   Kolom: TANGGAL | KETERANGAN | Qty | MASUK | KELUAR | SALDO
+   Setiap transaksi dipecah menjadi baris-baris jurnal:
+     1. Pengadaan              → MASUK  = PAGU
+     2. Pajak (PPN)            → KELUAR = PPN
+     3. Pajak (PPH 22)         → KELUAR = PPH
+     4. Pengembalian Modal     → KELUAR = Pembelian Tunai (Setelah Pajak − 5%)
+     5. Kas                    → MASUK  = 5% × PAGU
+   --------------------------------------------------------------- */
 function bangunPdf(jsPDF, data) {
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
     const lebar = doc.internal.pageSize.getWidth();
     const tinggi = doc.internal.pageSize.getHeight();
     const M = 14; // margin kiri/kanan
 
-    const BIRU = [37, 99, 235];
+    const HITAM    = [0, 0, 0];
+    const ABU_KEPALA = [220, 230, 241];   // warna header tabel (biru muda)
+    const ABU_BARIS  = [255, 255, 255];   // putih biasa
+    const TEKS     = [30, 41, 59];
+    const REDUP    = [100, 116, 139];
+    const BIRU     = [37, 99, 235];
     const BIRU_TUA = [29, 78, 216];
-    const BIRU_MUDA = [239, 246, 255];
-    const HIJAU = [22, 163, 74];
-    const MERAH = [220, 38, 38];
-    const TEKS = [30, 41, 59];
-    const REDUP = [100, 116, 139];
 
-    const t = ringkas(data);
-    const saldo = hitungSaldo(data);
     const tahunData = [...new Set(data.map((l) => (l.tanggal || "").slice(0, 4)).filter(Boolean))].sort();
     const teksTahun = tahunData.length === 0 ? "" :
-        tahunData.length === 1 ? tahunData[0] : tahunData[0] + " - " + tahunData[tahunData.length - 1];
+        tahunData.length === 1 ? tahunData[0] : tahunData[0] + " – " + tahunData[tahunData.length - 1];
 
-    // --- Pita kepala ---
-    doc.setFillColor(...BIRU);
-    doc.rect(0, 0, lebar, 26, "F");
-    doc.setFillColor(...BIRU_TUA);
-    doc.rect(0, 26, lebar, 1.2, "F");
+    // ============================================================
+    // Bangun baris-baris jurnal (sama persis dengan logika Excel)
+    // ============================================================
+    let saldoBerjalan = 0;
+    let totalMasuk = 0, totalKeluar = 0;
+    let tanggalTampil = null;
+    const barisTabel = [];
 
-    // Logo "R"
-    doc.setFillColor(255, 255, 255);
-    doc.roundedRect(M, 6, 14, 14, 3, 3, "F");
-    doc.setTextColor(...BIRU);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(17);
-    doc.text("R", M + 7, 16.2, { align: "center" });
-
-    // Judul
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(16);
-    doc.text("LAPORAN KEUANGAN", M + 19, 12.5);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.text("Sistem Ranara  |  Tahun " + teksTahun + "  |  " + deskripsiFilter(), M + 19, 18.5);
-
-    // Info dokumen (kanan)
-    doc.setFontSize(8.5);
-    doc.text("No. Dokumen", lebar - M, 9.5, { align: "right" });
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.text(nomorDokumen(), lebar - M, 14.5, { align: "right" });
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8.5);
-    doc.text("Diekspor " + formatTanggal(tanggalHariIni()), lebar - M, 20, { align: "right" });
-
-    // --- Kartu ringkasan ---
-    const kartu = [
-        { judul: "JUMLAH LAPORAN", nilai: String(data.length), warna: BIRU },
-        { judul: "TOTAL MASUK (5%)", nilai: formatRupiah(t.persen), warna: HIJAU },
-        { judul: "TOTAL KELUAR (ANGGARAN)", nilai: formatRupiah(t.diterima), warna: MERAH },
-        { judul: "SALDO BERSIH", nilai: formatRupiah(t.persen), warna: BIRU_TUA },
-    ];
-    const jarak = 6;
-    const lebarKartu = (lebar - 2 * M - 3 * jarak) / 4;
-    const yKartu = 33;
-    const tinggiKartu = 19;
-
-    kartu.forEach((k, i) => {
-        const x = M + i * (lebarKartu + jarak);
-        doc.setFillColor(248, 250, 252);
-        doc.setDrawColor(226, 232, 240);
-        doc.roundedRect(x, yKartu, lebarKartu, tinggiKartu, 2.5, 2.5, "FD");
-        doc.setFillColor(...k.warna);
-        doc.roundedRect(x, yKartu, 2.2, tinggiKartu, 1.1, 1.1, "F");
-        doc.setTextColor(...REDUP);
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(7);
-        doc.text(k.judul, x + 6, yKartu + 6.5);
-        doc.setTextColor(...k.warna);
-        doc.setFontSize(13);
-        doc.text(k.nilai, x + 6, yKartu + 14.5);
-    });
-
-    // --- Tabel ---
-    const kepala = [["TANGGAL", "Uraian / Keterangan", "CV", "5%", "PPN 12%", "PPH 22",
-        "Setelah Pajak", "Anggaran", "Masuk", "KELUAR", "SALDO"]];
-
-    const isi = data.map((l, i) => {
+    data.forEach((l) => {
         const r = hitung(l.pagu, l.ppn, l.pph22);
-        const uraian = [l.uraian, l.keterangan].filter(Boolean).join(" — ") || "-";
-        return [l.tanggal ? formatTanggal(l.tanggal) : "-", uraian, l.cv || "-",
-            angka(r.persen), angka(l.ppn), angka(l.pph22), angka(r.setelah),
-            angka(r.diterima), angka(r.persen), angka(r.diterima), angka(saldo[i])];
-    });
-    isi.push(["", "JUMLAH", "", angka(t.persen), angka(t.ppn), angka(t.pph22), angka(t.setelah),
-        angka(t.diterima), angka(t.persen), angka(t.diterima), ""]);
+        const isTglBaru = l.tanggal !== tanggalTampil;
+        tanggalTampil = l.tanggal;
+        const tglStr = l.tanggal ? formatTanggal(l.tanggal) : "—";
+        const namaUraian = l.uraian || l.cv || "Pengadaan";
 
+        const tambah = (tgl, ket, masuk, keluar) => {
+            saldoBerjalan += (masuk || 0) - (keluar || 0);
+            totalMasuk  += masuk  || 0;
+            totalKeluar += keluar || 0;
+            barisTabel.push([
+                tgl,
+                ket,
+                "",
+                masuk  > 0 ? angka(masuk)  : "",
+                keluar > 0 ? angka(keluar) : "",
+                angka(saldoBerjalan),
+            ]);
+        };
+
+        tambah(isTglBaru ? tglStr : "", namaUraian,    l.pagu, 0);
+        if (l.ppn   > 0) tambah("", "Pajak (PPN)",              0, l.ppn);
+        if (l.pph22 > 0) tambah("", "Pajak (PPH 22)",           0, l.pph22);
+        const pembelianTunai = r.diterima;
+        if (pembelianTunai > 0) tambah("", "Pengembalian Modal Perorangan", 0, pembelianTunai);
+        if (r.persen > 0) tambah("", "Kas",                      r.persen, 0);
+    });
+
+    // Baris jumlah
+    barisTabel.push(["", "JUMLAH", "",
+        angka(totalMasuk), angka(totalKeluar), angka(saldoBerjalan)]);
+
+    // ============================================================
+    // Kepala halaman — teks buku besar sederhana (tidak pakai pita warna)
+    // ============================================================
+    const yAwal = 10;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.setTextColor(...HITAM);
+    doc.text("BUKU BESAR RANARA", lebar / 2, yAwal, { align: "center" });
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text(teksTahun, lebar / 2, yAwal + 7, { align: "center" });
+
+    // Keterangan filter di pojok kanan atas
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...REDUP);
+    doc.text("Diekspor " + formatTanggal(tanggalHariIni()), lebar - M, yAwal, { align: "right" });
+    doc.text(deskripsiFilter(), lebar - M, yAwal + 4.5, { align: "right" });
+
+    // ============================================================
+    // Tabel Buku Besar
+    // ============================================================
+    /* Kepala tabel mengikuti format laporan:
+       baris pertama: span TANGGAL+KETERANGAN+Qty | MASUK | KELUAR | SALDO
+       baris kedua  : TANGGAL | KETERANGAN | Qty  | MASUK | KELUAR | SALDO  */
+    const kepalaGrup = [[
+        { content: "", colSpan: 3, styles: { halign: "center", fillColor: ABU_KEPALA } },
+        { content: "MASUK",  styles: { halign: "center", fillColor: ABU_KEPALA, textColor: HITAM, fontStyle: "bold" } },
+        { content: "KELUAR", styles: { halign: "center", fillColor: ABU_KEPALA, textColor: HITAM, fontStyle: "bold" } },
+        { content: "SALDO",  styles: { halign: "center", fillColor: ABU_KEPALA, textColor: HITAM, fontStyle: "bold" } },
+    ], [
+        { content: "TANGGAL",     styles: { halign: "center", fillColor: ABU_KEPALA, textColor: HITAM, fontStyle: "bold" } },
+        { content: "KETERANGAN",  styles: { halign: "center", fillColor: ABU_KEPALA, textColor: HITAM, fontStyle: "bold" } },
+        { content: "Qty",         styles: { halign: "center", fillColor: ABU_KEPALA, textColor: HITAM, fontStyle: "bold" } },
+        { content: "MASUK",       styles: { halign: "center", fillColor: ABU_KEPALA, textColor: HITAM, fontStyle: "bold" } },
+        { content: "KELUAR",      styles: { halign: "center", fillColor: ABU_KEPALA, textColor: HITAM, fontStyle: "bold" } },
+        { content: "SALDO",       styles: { halign: "center", fillColor: ABU_KEPALA, textColor: HITAM, fontStyle: "bold" } },
+    ]];
+
+    const totalBaris = barisTabel.length;
     doc.autoTable({
-        head: kepala,
-        body: isi,
-        startY: yKartu + tinggiKartu + 7,
+        head: kepalaGrup,
+        body: barisTabel,
+        startY: yAwal + 14,
         margin: { top: 14, left: M, right: M, bottom: 14 },
         theme: "grid",
-        rowPageBreak: "avoid", // satu baris tidak terpotong di pergantian halaman
+        rowPageBreak: "avoid",
         styles: {
-            fontSize: 7.5, cellPadding: 2, textColor: TEKS, overflow: "linebreak",
-            lineColor: [226, 232, 240], lineWidth: 0.2, valign: "middle",
+            fontSize: 8, cellPadding: { top: 1.5, bottom: 1.5, left: 2, right: 2 },
+            textColor: TEKS, overflow: "linebreak",
+            lineColor: HITAM, lineWidth: 0.15, valign: "middle",
+            fillColor: ABU_BARIS,
         },
         headStyles: {
-            fillColor: BIRU, textColor: 255, fontSize: 7.5, fontStyle: "bold",
-            halign: "center", lineColor: BIRU,
+            fillColor: ABU_KEPALA, textColor: HITAM, fontSize: 8,
+            fontStyle: "bold", halign: "center", lineColor: HITAM, lineWidth: 0.2,
         },
         alternateRowStyles: { fillColor: [248, 250, 252] },
         columnStyles: {
-            0: { cellWidth: 22 },
-            1: { cellWidth: "auto" },
-            2: { cellWidth: 28 },
-            3: { cellWidth: 19, halign: "right" },
-            4: { cellWidth: 20, halign: "right" },
-            5: { cellWidth: 17, halign: "right" },
-            6: { cellWidth: 23, halign: "right" },
-            7: { cellWidth: 23, halign: "right" },
-            8: { cellWidth: 19, halign: "right", textColor: HIJAU, fontStyle: "bold" },
-            9: { cellWidth: 23, halign: "right", textColor: MERAH, fontStyle: "bold" },
-            10: { cellWidth: 22, halign: "right", fontStyle: "bold", textColor: BIRU_TUA },
+            0: { cellWidth: 28, halign: "left" },
+            1: { cellWidth: "auto", halign: "left" },
+            2: { cellWidth: 10, halign: "center" },
+            3: { cellWidth: 32, halign: "right" },
+            4: { cellWidth: 32, halign: "right" },
+            5: { cellWidth: 32, halign: "right", fontStyle: "bold" },
         },
         didParseCell: (d) => {
-            if (d.section === "head") {
-                // Kepala Masuk berwarna hijau, KELUAR berwarna merah
-                if (d.column.index === 8) d.cell.styles.fillColor = HIJAU;
-                if (d.column.index === 9) d.cell.styles.fillColor = MERAH;
-            }
-            if (d.section === "body" && d.row.index === data.length) {
+            // Baris JUMLAH (baris terakhir)
+            if (d.section === "body" && d.row.index === totalBaris - 1) {
                 d.cell.styles.fontStyle = "bold";
-                d.cell.styles.fillColor = BIRU_MUDA;
+                d.cell.styles.fillColor = ABU_KEPALA;
+                d.cell.styles.textColor = HITAM;
                 if (d.column.index === 1) d.cell.styles.halign = "center";
+                if (d.column.index >= 3)  d.cell.styles.halign = "right";
             }
         },
         didDrawPage: () => {
-            doc.setDrawColor(226, 232, 240);
+            doc.setDrawColor(...REDUP);
             doc.line(M, tinggi - 11, lebar - M, tinggi - 11);
             doc.setFont("helvetica", "normal");
-            doc.setFontSize(8);
+            doc.setFontSize(7.5);
             doc.setTextColor(...REDUP);
             doc.text("Sistem Ranara — dokumen dibuat otomatis. Angka dalam Rupiah (Rp).", M, tinggi - 6.5);
             doc.text("Halaman " + doc.internal.getCurrentPageInfo().pageNumber,
