@@ -538,6 +538,14 @@ function buatBaris(laporan, nomor, saldoBersih) {
     selSetelah.className = "sel-uang";
     selSetelah.textContent = formatRupiah(r.setelah);
 
+    const selDiterima = document.createElement("td");
+    selDiterima.className = "sel-diterima";
+    selDiterima.textContent = formatRupiah(r.diterima);
+
+    const selSaldo = document.createElement("td");
+    selSaldo.className = "sel-diterima";
+    selSaldo.textContent = formatRupiah(saldoBersih);
+
     const selKeterangan = document.createElement("td");
     selKeterangan.className = "sel-keterangan";
     if (laporan.keterangan) {
@@ -555,7 +563,7 @@ function buatBaris(laporan, nomor, saldoBersih) {
     );
 
     baris.append(selNo, selTanggal, selUraian, selCv, selPagu, selPersen, selPpn, selPph,
-        selPajak, selSetelah, selKeterangan, selAksi);
+        selPajak, selSetelah, selDiterima, selSaldo, selKeterangan, selAksi);
     return baris;
 }
 
@@ -626,7 +634,7 @@ function bangunWorkbook(ExcelJS, data) {
     ws.getRow(3).height = 6;
 
     // --- Kepala kolom (baris 4) ---
-    const kepalaKolom = ["TANGGAL", "KETERANGAN", "CV / Sekolah", "Qty", "MASUK", "KELUAR", "SALDO"];
+    const kepalaKolom = ["TANGGAL", "KETERANGAN", "Sekolah", "Qty", "MASUK", "KELUAR", "SALDO"];
     const barisKepala = ws.getRow(4);
     kepalaKolom.forEach((teks, i) => {
         const sel = barisKepala.getCell(i + 1);
@@ -639,14 +647,14 @@ function bangunWorkbook(ExcelJS, data) {
     barisKepala.height = 16;
 
     // --- Isi jurnal: tiap transaksi → beberapa baris ---
-    let saldoBerjalan = 0;
-    let noBarisExcel  = 5; // data mulai baris 5
+    let saldoKas    = 0; // hanya akumulasi 5% (Kas)
+    let noBarisExcel = 5; // data mulai baris 5
     let totalMasuk = 0, totalKeluar = 0;
     let tanggalTampil = null;
 
-    /* tglObj = objek Date | null, cv = string nama sekolah/PT */
-    const tulisBaris = (tglObj, keterangan, cv, qty, masuk, keluar, isGroupFirst) => {
-        saldoBerjalan += (masuk || 0) - (keluar || 0);
+    /* isKas = true → baris Kas; SALDO hanya ditampilkan pada baris Kas */
+    const tulisBaris = (tglObj, keterangan, cv, qty, masuk, keluar, isGroupFirst, isKas) => {
+        if (isKas) saldoKas += (masuk || 0); // akumulasi hanya dari 5%
         const baris = ws.getRow(noBarisExcel);
 
         // A – TANGGAL (hanya baris pertama grup)
@@ -668,7 +676,7 @@ function bangunWorkbook(ExcelJS, data) {
         selKet.alignment = { horizontal: "left", vertical: "middle", wrapText: true };
         selKet.border = garis;
 
-        // C – CV / Sekolah (hanya baris pertama grup)
+        // C – Sekolah
         const selCv = baris.getCell(3);
         selCv.value = cv || null;
         selCv.font  = { name: NAMA_FONT, size: 10 };
@@ -698,9 +706,9 @@ function bangunWorkbook(ExcelJS, data) {
         selKeluar.alignment = { horizontal: "right", vertical: "middle" };
         selKeluar.border = garis;
 
-        // G – SALDO
+        // G – SALDO (hanya tampil di baris Kas)
         const selSaldo = baris.getCell(7);
-        selSaldo.value  = saldoBerjalan;
+        selSaldo.value  = isKas ? saldoKas : null;
         selSaldo.numFmt = FORMAT_RP;
         selSaldo.font   = { name: NAMA_FONT, size: 10, bold: true };
         selSaldo.alignment = { horizontal: "right", vertical: "middle" };
@@ -718,35 +726,22 @@ function bangunWorkbook(ExcelJS, data) {
             const [y, m, d] = l.tanggal.split("-").map(Number);
             tglObj = new Date(Date.UTC(y, m - 1, d));
         }
-        const isTglBaru  = l.tanggal !== tanggalTampil;
-        tanggalTampil    = l.tanggal;
-        const namaUraian = l.uraian || l.cv || "Pengadaan";
-        const namaCV     = l.cv || "";
+        const isTglBaru   = l.tanggal !== tanggalTampil;
+        tanggalTampil     = l.tanggal;
+        const namaUraian  = l.uraian || l.cv || "Pengadaan";
+        const namaSekolah = l.keterangan || "";
 
-        // Baris 1 — Pengadaan (MASUK = PAGU)
-        tulisBaris(tglObj, namaUraian, namaCV, null, l.pagu, 0, isTglBaru);
-
-        // Baris 2 — Pajak PPN (KELUAR)
-        if (l.ppn > 0)
-            tulisBaris(null, "Pajak (PPN)", "", null, 0, l.ppn, false);
-
-        // Baris 3 — Pajak PPH 22 (KELUAR)
-        if (l.pph22 > 0)
-            tulisBaris(null, "Pajak (PPH 22)", "", null, 0, l.pph22, false);
-
-        // Baris 4 — Pembelian Tunai (KELUAR = Setelah Pajak − 5%)
+        tulisBaris(tglObj, namaUraian,       namaSekolah, null, l.pagu,  0,           isTglBaru, false);
+        if (l.ppn   > 0) tulisBaris(null, "Pajak (PPN)",    "", null, 0, l.ppn,       false,     false);
+        if (l.pph22 > 0) tulisBaris(null, "Pajak (PPH 22)", "", null, 0, l.pph22,    false,     false);
         const pembelianTunai = r.diterima;
-        if (pembelianTunai > 0)
-            tulisBaris(null, "Pembelian Tunai", "", null, 0, pembelianTunai, false);
-
-        // Baris 5 — Kas (MASUK = 5%)
-        if (r.persen > 0)
-            tulisBaris(null, "Kas", "", null, r.persen, 0, false);
+        if (pembelianTunai > 0) tulisBaris(null, "Pembelian Tunai", "", null, 0, pembelianTunai, false, false);
+        if (r.persen   > 0) tulisBaris(null, "Kas",          "", null, r.persen, 0, false,     true);  // isKas=true
     });
 
     // --- Baris JUMLAH ---
     const barisJumlah = ws.getRow(noBarisExcel);
-    const nilaiJumlah = ["", "JUMLAH", "", "", totalMasuk, totalKeluar, saldoBerjalan];
+    const nilaiJumlah = ["", "JUMLAH", "", "", totalMasuk, totalKeluar, saldoKas];
     nilaiJumlah.forEach((v, k) => {
         const sel = barisJumlah.getCell(k + 1);
         sel.value = v;
@@ -834,7 +829,7 @@ function bangunPdf(jsPDF, data) {
         tahunData.length === 1 ? tahunData[0] : tahunData[0] + " – " + tahunData[tahunData.length - 1];
 
     // --- Bangun baris-baris jurnal ---
-    let saldoBerjalan = 0;
+    let saldoKas    = 0; // hanya akumulasi 5% (Kas)
     let totalMasuk = 0, totalKeluar = 0;
     let tanggalTampil = null;
     const barisTabel = [];
@@ -844,13 +839,14 @@ function bangunPdf(jsPDF, data) {
         const isTglBaru  = l.tanggal !== tanggalTampil;
         tanggalTampil    = l.tanggal;
         const tglStr     = l.tanggal ? formatTanggal(l.tanggal) : "—";
-        const namaUraian = l.uraian || l.cv || "Pengadaan";
-        const namaCV     = l.cv || "";
+        const namaUraian  = l.uraian || l.cv || "Pengadaan";
+        const namaSekolah = l.keterangan || "";
 
-        const tambah = (tgl, ket, cv, masuk, keluar) => {
-            saldoBerjalan += (masuk || 0) - (keluar || 0);
-            totalMasuk    += masuk  || 0;
-            totalKeluar   += keluar || 0;
+        /* isKas = true → baris Kas, SALDO hanya ditampilkan di baris ini */
+        const tambah = (tgl, ket, cv, masuk, keluar, isKas) => {
+            if (isKas) saldoKas += (masuk || 0);
+            totalMasuk  += masuk  || 0;
+            totalKeluar += keluar || 0;
             barisTabel.push([
                 tgl,
                 ket,
@@ -858,20 +854,20 @@ function bangunPdf(jsPDF, data) {
                 "",   // Qty
                 masuk  > 0 ? angka(masuk)  : "",
                 keluar > 0 ? angka(keluar) : "",
-                angka(saldoBerjalan),
+                isKas  ? angka(saldoKas)   : "",  // SALDO hanya di baris Kas
             ]);
         };
 
-        tambah(isTglBaru ? tglStr : "", namaUraian,    namaCV, l.pagu, 0);
-        if (l.ppn   > 0) tambah("", "Pajak (PPN)",         "", 0, l.ppn);
-        if (l.pph22 > 0) tambah("", "Pajak (PPH 22)",      "", 0, l.pph22);
+        tambah(isTglBaru ? tglStr : "", namaUraian,    namaSekolah, l.pagu, 0,           false);
+        if (l.ppn   > 0) tambah("", "Pajak (PPN)",         "", 0, l.ppn,       false);
+        if (l.pph22 > 0) tambah("", "Pajak (PPH 22)",      "", 0, l.pph22,    false);
         const pembelianTunai = r.diterima;
-        if (pembelianTunai > 0) tambah("", "Pembelian Tunai", "", 0, pembelianTunai);
-        if (r.persen > 0) tambah("", "Kas",                  "", r.persen, 0);
+        if (pembelianTunai > 0) tambah("", "Pembelian Tunai", "", 0, pembelianTunai, false);
+        if (r.persen   > 0) tambah("", "Kas",                "", r.persen, 0,   true);  // isKas=true
     });
 
     barisTabel.push(["", "JUMLAH", "", "",
-        angka(totalMasuk), angka(totalKeluar), angka(saldoBerjalan)]);
+        angka(totalMasuk), angka(totalKeluar), angka(saldoKas)]);
 
     // --- Kepala halaman ---
     const yAwal = 10;
@@ -889,7 +885,7 @@ function bangunPdf(jsPDF, data) {
     doc.text(deskripsiFilter(), lebar - M, yAwal + 4.5, { align: "right" });
 
     // --- Tabel ---
-    const kepala = [["TANGGAL", "KETERANGAN", "CV / Sekolah", "Qty", "MASUK", "KELUAR", "SALDO"]];
+    const kepala = [["TANGGAL", "KETERANGAN", "Sekolah", "Qty", "MASUK", "KELUAR", "SALDO"]];
     const totalBaris = barisTabel.length;
 
     doc.autoTable({
