@@ -619,7 +619,7 @@ function bangunWorkbook(ExcelJS, data) {
         tahunData.length === 1 ? tahunData[0] : tahunData[0] + " – " + tahunData[tahunData.length - 1];
 
     ws.mergeCells("A1:G1");
-    ws.getCell("A1").value = "BUKU BESAR RANARA";
+    ws.getCell("A1").value = "BUKU BESAR PT. RANARA BERKAH UTAMA";
     ws.getCell("A1").font = { name: NAMA_FONT, size: 14, bold: true };
     ws.getCell("A1").alignment = { horizontal: "center", vertical: "middle" };
     ws.getRow(1).height = 22;
@@ -891,7 +891,7 @@ function bangunPdf(jsPDF, data) {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(11);
         doc.setTextColor(...HITAM);
-        doc.text("RANARA", lebar / 2, 16, { align: "center" });
+        doc.text("PT. Ranara Berkah Utama", lebar / 2, 16, { align: "center" });
 
         // Judul buku besar – biru besar
         doc.setFont("helvetica", "bold");
