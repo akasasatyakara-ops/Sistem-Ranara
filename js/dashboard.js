@@ -805,15 +805,183 @@ function eksporPdf() {
 
 /* ---------------------------------------------------------------
    Susun dokumen PDF format BUKU BESAR RANARA
-   Kolom: TANGGAL | KETERANGAN | CV / Sekolah | Qty | MASUK | KELUAR | SALDO
-   Setiap transaksi dipecah menjadi baris-baris jurnal:
-     1. Pengadaan  → MASUK  = PAGU
-     2. Pajak PPN  → KELUAR = PPN
-     3. Pajak PPH  → KELUAR = PPH
-     4. Pembelian Tunai → KELUAR = Setelah Pajak − 5%
-     5. Kas        → MASUK  = 5% × PAGU
+   Desain: gaya buku besar profesional
+   Kolom: TANGGAL | KETERANGAN | Mitra | MASUK | KELUAR | SALDO
    --------------------------------------------------------------- */
 function bangunPdf(jsPDF, data) {
+    const doc    = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const lebar  = doc.internal.pageSize.getWidth();
+    const tinggi = doc.internal.pageSize.getHeight();
+    const M      = 14;
+
+    // ── Palet warna ──────────────────────────────────────────────
+    const HITAM      = [0,   0,   0  ];
+    const ABU_KEPALA = [230, 230, 230];
+    const ABU_JUMLAH = [240, 240, 240];
+    const BIRU_JUDUL = [31,  73,  125];
+    const BIRU_MUDA  = [68,  114, 196];
+    const TEKS       = [40,  40,  40 ];
+    const REDUP      = [130, 130, 130];
+    const GARIS_COL  = [180, 180, 180];
+
+    // ── Tahun data ────────────────────────────────────────────────
+    const tahunData = [...new Set(data.map((l) => (l.tanggal || "").slice(0, 4)).filter(Boolean))].sort();
+    const teksTahun = tahunData.length === 0 ? "Semua Periode" :
+        tahunData.length === 1 ? "Tahun " + tahunData[0]
+            : tahunData[0] + " \u2013 " + tahunData[tahunData.length - 1];
+
+    const tglEkspor = new Date();
+    const tglEksporStr = tglEkspor.toLocaleDateString("id-ID", {
+        weekday: "long", day: "2-digit", month: "long", year: "numeric"
+    });
+
+    // ── Bangun baris-baris jurnal (data tidak berubah) ────────────
+    let saldoKas    = 0;
+    let totalMasuk  = 0, totalKeluar = 0;
+    let tanggalTampil = null;
+    const barisTabel  = [];
+
+    data.forEach((l) => {
+        const r          = hitung(l.pagu, l.ppn, l.pph22);
+        const isTglBaru  = l.tanggal !== tanggalTampil;
+        tanggalTampil    = l.tanggal;
+        const tglStr     = l.tanggal ? formatTanggal(l.tanggal) : "\u2014";
+        const namaUraian  = l.uraian || l.cv || "Pengadaan";
+        const namaSekolah = l.keterangan || "";
+
+        const tambah = (tgl, ket, mitra, masuk, keluar, isKas) => {
+            if (isKas) saldoKas += (masuk || 0);
+            totalMasuk  += masuk  || 0;
+            totalKeluar += keluar || 0;
+            barisTabel.push([
+                tgl,
+                ket,
+                mitra,
+                masuk  > 0 ? angka(masuk)  : "",
+                keluar > 0 ? angka(keluar) : "",
+                isKas  ? angka(saldoKas)   : "",
+            ]);
+        };
+
+        tambah(isTglBaru ? tglStr : "", namaUraian,    namaSekolah, l.pagu, 0,           false);
+        if (l.ppn   > 0) tambah("", "Pajak (PPN)",         "", 0, l.ppn,       false);
+        if (l.pph22 > 0) tambah("", "Pajak (PPH 22)",      "", 0, l.pph22,    false);
+        const pt = r.diterima;
+        if (pt      > 0) tambah("", "Pembelian Tunai",      "", 0, pt,          false);
+        if (r.persen > 0) tambah("", "Kas",                 "", r.persen, 0,   true);
+    });
+
+    const idxJumlah = barisTabel.length;
+    barisTabel.push(["", "JUMLAH", "", angka(totalMasuk), angka(totalKeluar), angka(saldoKas)]);
+
+    // ── Gambar kepala halaman ─────────────────────────────────────
+    const gambarKepala = () => {
+        const now = new Date();
+        // Timestamp pojok kiri atas
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7.5);
+        doc.setTextColor(...REDUP);
+        doc.text(
+            now.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) +
+            "   " + now.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }),
+            M, 8
+        );
+
+        // Nama perusahaan
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(...HITAM);
+        doc.text("RANARA", lebar / 2, 16, { align: "center" });
+
+        // Judul buku besar – biru besar
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(16);
+        doc.setTextColor(...BIRU_JUDUL);
+        doc.text("Buku Besar  \u2014  Kas Masuk", lebar / 2, 23, { align: "center" });
+
+        // Sub-judul periode – biru muda
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(...BIRU_MUDA);
+        doc.text(tglEksporStr + "   |   " + teksTahun, lebar / 2, 29, { align: "center" });
+
+        // Garis pemisah bawah kepala
+        doc.setDrawColor(...GARIS_COL);
+        doc.setLineWidth(0.4);
+        doc.line(M, 32, lebar - M, 32);
+    };
+
+    gambarKepala();
+
+    // ── Tabel ─────────────────────────────────────────────────────
+    const kepala = [["TANGGAL", "KETERANGAN", "Mitra", "MASUK", "KELUAR", "SALDO"]];
+
+    doc.autoTable({
+        head: kepala,
+        body: barisTabel,
+        startY: 35,
+        margin: { top: 36, left: M, right: M, bottom: 14 },
+        theme: "plain",
+        rowPageBreak: "avoid",
+        styles: {
+            fontSize: 8,
+            cellPadding: { top: 2, bottom: 2, left: 2.5, right: 2.5 },
+            textColor: TEKS,
+            overflow: "linebreak",
+            valign: "middle",
+            lineWidth: 0,
+        },
+        headStyles: {
+            fillColor: ABU_KEPALA,
+            textColor: HITAM,
+            fontSize: 8.5,
+            fontStyle: "bold",
+            halign: "center",
+            lineWidth: { bottom: 0.3 },
+            lineColor: [150, 150, 150],
+        },
+        alternateRowStyles: {
+            fillColor: [250, 252, 255],
+        },
+        columnStyles: {
+            0: { cellWidth: 28, halign: "left"  },
+            1: { cellWidth: "auto", halign: "left" },
+            2: { cellWidth: 36, halign: "left"  },
+            3: { cellWidth: 34, halign: "right" },
+            4: { cellWidth: 34, halign: "right" },
+            5: { cellWidth: 34, halign: "right", fontStyle: "bold" },
+        },
+        didParseCell: (d) => {
+            if (d.section === "body" && d.row.index === idxJumlah) {
+                d.cell.styles.fillColor = ABU_JUMLAH;
+                d.cell.styles.fontStyle = "bold";
+                d.cell.styles.textColor = HITAM;
+                d.cell.styles.fontSize  = 8.5;
+                if (d.column.index >= 3) d.cell.styles.halign = "right";
+            }
+            if (d.section === "body") {
+                d.cell.styles.lineWidth = { bottom: 0.15 };
+                d.cell.styles.lineColor = [210, 210, 210];
+            }
+        },
+        didDrawPage: (hookData) => {
+            if (hookData.pageNumber > 1) gambarKepala();
+            // Footer
+            doc.setDrawColor(...REDUP);
+            doc.setLineWidth(0.2);
+            doc.line(M, tinggi - 10, lebar - M, tinggi - 10);
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(7);
+            doc.setTextColor(...REDUP);
+            doc.text("Sistem Ranara \u2014 dokumen dibuat otomatis. Angka dalam Rupiah (Rp).", M, tinggi - 6);
+            doc.text("Halaman " + doc.internal.getCurrentPageInfo().pageNumber,
+                lebar - M, tinggi - 6, { align: "right" });
+        },
+    });
+
+    return doc;
+}
+
     const doc   = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
     const lebar = doc.internal.pageSize.getWidth();
     const tinggi = doc.internal.pageSize.getHeight();
