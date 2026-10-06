@@ -634,7 +634,7 @@ function bangunWorkbook(ExcelJS, data) {
     ws.getRow(3).height = 6;
 
     // --- Kepala kolom (baris 4) ---
-    const kepalaKolom = ["TANGGAL", "KETERANGAN", "Sekolah", "Qty", "MASUK", "KELUAR", "SALDO"];
+    const kepalaKolom = ["TANGGAL", "KETERANGAN", "Mitra", "Qty", "MASUK", "KELUAR", "SALDO"];
     const barisKepala = ws.getRow(4);
     kepalaKolom.forEach((teks, i) => {
         const sel = barisKepala.getCell(i + 1);
